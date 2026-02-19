@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+  <body>
+    <input id="username" placeholder="Username" />
+    <button onclick="register()">Register Passkey</button>
+
+    <script>
+      // async function register() {
+      //   const user = document.getElementById("username").value;
+
+      //   // Use encodeURIComponent to safely handle symbols like @ in emails
+      //   const url = `http://localhost:3000/register/start?username=${encodeURIComponent(
+      //     user
+      //   )}`;
+
+      //   const response = await fetch(url, { method: "POST" });
+
+      //   if (!response.ok) {
+      //     console.error("Server error:", response.status);
+      //     return;
+      //   }
+
+      //   const options = await response.json();
+
+      //   // Note: In a real app, use a library like @github/webauthn-json to handle encoding
+      //   const credential = await navigator.credentials.create(options);
+
+      //   // 3. Send back to Rust
+      //   await fetch(`/register/finish/${user}`, {
+      //     method: "POST",
+      //     headers: { "Content-Type": "application/json" },
+      //     body: JSON.stringify(credential),
+      //   });
+      //   alert("Done!");
+      // }
+      // A more robust helper to handle Base64URL decoding
+      function base64urlToUint8Array(base64url) {
+        // Replace non-url safe characters and add padding if necessary
+        const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
+        const pad = base64.length % 4;
+        const padded = pad ? base64 + "=".repeat(4 - pad) : base64;
+
+        const binary = atob(padded);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes;
+      }
+
+      async function register() {
+        const user = document.getElementById("username").value;
+        const res = await fetch(
+          `/register/start?username=${encodeURIComponent(user)}`,
+          { method: "POST" }
+        );
+
+        if (!res.ok) {
+          alert("Server error during registration start");
+          return;
+        }
+
+        const options = await res.json();
+        console.log("Options from server:", options); // Debugging
+
+        // CRITICAL: Convert these specific fields to Uint8Array
+        options.publicKey.challenge = base64urlToUint8Array(
+          options.publicKey.challenge
+        );
+        options.publicKey.user.id = base64urlToUint8Array(
+          options.publicKey.user.id
+        );
+
+        try {
+          const credential = await navigator.credentials.create(options);
+
+          // We must convert the binary data back to something JSON-friendly to send to Rust
+          const credentialForServer = {
+            id: credential.id,
+            rawId: bufferToBase64(credential.rawId),
+            type: credential.type,
+            response: {
+              attestationObject: bufferToBase64(
+                credential.response.attestationObject
+              ),
+              clientDataJSON: bufferToBase64(
+                credential.response.clientDataJSON
+              ),
+            },
+          };
+
+          const finishRes = await fetch(
+            `/register/finish?username=${encodeURIComponent(user)}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(credentialForServer),
+            }
+          );
+
+          const resultText = await finishRes.text();
+          alert(resultText);
+        } catch (err) {
+          console.error("Browser registration error:", err);
+          alert("Registration failed: " + err.message);
+        }
+      }
+
+      // Helper to convert buffers back to Base64 for the server
+      function bufferToBase64(buffer) {
+        return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+          .replace(/\+/g, "-")
+          .replace(/\//g, "_")
+          .replace(/=/g, "");
+      }
+    </script>
+  </body>
+</html>
