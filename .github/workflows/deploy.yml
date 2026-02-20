@@ -24,8 +24,9 @@ jobs:
           host: ${{ secrets.REMOTE_HOST }}
           username: ${{ secrets.REMOTE_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "target/release/rust-passkey-app" # Local binary name
-          target: "/home/ubuntu/rust-passkeys-app"  # Target folder on EC2
+          # Path to your compiled binary and target folder on EC2
+          source: "target/release/rust-passkey-app"
+          target: "/home/ubuntu/rust-passkeys-app"
           strip_components: 2
 
   deploy:
@@ -39,5 +40,9 @@ jobs:
           username: ${{ secrets.REMOTE_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            # Ensure the directory exists
+            mkdir -p /home/ubuntu/rust-passkeys-app
+            # Give execution permissions to the binary uploaded via SCP
             chmod +x /home/ubuntu/rust-passkeys-app/rust-passkey-app
+            # Restart the systemd service
             sudo systemctl restart rust-passkey-app.service
