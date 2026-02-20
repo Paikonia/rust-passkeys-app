@@ -1,0 +1,27 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main  # Or 'master' depending on your default branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ${{ secrets.SERVER_PATH }}
+            git pull origin main
+            # Build and restart your Rust app
+            cargo build --release
+            # Assuming you use systemd to manage your app:
+            sudo systemctl restart rust-passkey-app.service
