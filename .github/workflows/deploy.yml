@@ -24,8 +24,8 @@ jobs:
           host: ${{ secrets.REMOTE_HOST }}
           username: ${{ secrets.REMOTE_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "target/release/rust-passkey-app"
-          target: "/home/ubuntu/rust-passkey-app-temp"
+          source: "target/release/rust-passkey-app" # Local binary name
+          target: "/home/ubuntu/rust-passkeys-app"  # Target folder on EC2
           strip_components: 2
 
   deploy:
@@ -39,7 +39,5 @@ jobs:
           username: ${{ secrets.REMOTE_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            mkdir -p /home/ubuntu/rust-passkey-app
-            mv /home/ubuntu/rust-passkey-app-temp/rust-passkey-app /home/ubuntu/rust-passkey-app/rust-passkey-app
-            chmod +x /home/ubuntu/rust-passkey-app/rust-passkey-app
+            chmod +x /home/ubuntu/rust-passkeys-app/rust-passkey-app
             sudo systemctl restart rust-passkey-app.service
