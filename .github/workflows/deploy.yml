@@ -1,27 +1,45 @@
-name: Deploy to EC2
+name: Build and Deploy Rust App
 
 on:
   push:
     branches:
-      - main  # Or 'master' depending on your default branch
+      - main
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy via SSH
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Release Binary
+        run: cargo build --release
+
+      - name: Copy binary to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "target/release/rust-passkey-app"
+          target: "/home/ubuntu/rust-passkey-app-temp"
+          strip_components: 2
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execute remote commands
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.REMOTE_HOST }}
           username: ${{ secrets.REMOTE_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd ${{ secrets.SERVER_PATH }}
-            git pull origin main
-            # Build and restart your Rust app
-            cargo build --release
-            # Assuming you use systemd to manage your app:
+            mkdir -p /home/ubuntu/rust-passkey-app
+            mv /home/ubuntu/rust-passkey-app-temp/rust-passkey-app /home/ubuntu/rust-passkey-app/rust-passkey-app
+            chmod +x /home/ubuntu/rust-passkey-app/rust-passkey-app
             sudo systemctl restart rust-passkey-app.service
